@@ -17,14 +17,17 @@ export async function POST(request: Request) {
     const supabase = createAdminClient();
     const { data: photo, error } = await supabase.from('photos').select('*').eq('id', id).single();
     if (error || !photo) return apiError('Cette capture n’existe plus.', 404);
-    if (photo.is_published) return apiSuccess('Cette photo est déjà publiée.', { id });
+    if (photo.is_published) return apiSuccess('Ce souvenir est déjà publié.', { id });
     if (photo.bucket_name !== 'webcam-private') return apiError('Emplacement de capture invalide.', 422);
 
     const { data: file, error: downloadError } = await supabase.storage.from('webcam-private').download(photo.storage_path);
     if (downloadError) throw downloadError;
-    publicPath = `webcam/${crypto.randomUUID()}.jpg`;
+    const extension = String(photo.storage_path).split('.').pop()?.toLowerCase();
+    if (!extension || !['jpg', 'webm', 'mp4'].includes(extension)) return apiError('Format de capture invalide.', 422);
+    const contentType = extension === 'jpg' ? 'image/jpeg' : extension === 'mp4' ? 'video/mp4' : 'video/webm';
+    publicPath = `webcam/${crypto.randomUUID()}.${extension}`;
     const { error: uploadError } = await supabase.storage.from('album-public').upload(publicPath, file, {
-      contentType: 'image/jpeg', cacheControl: '31536000', upsert: false,
+      contentType, cacheControl: '31536000', upsert: false,
     });
     if (uploadError) throw uploadError;
 
@@ -39,9 +42,9 @@ export async function POST(request: Request) {
       throw updateError;
     }
     await supabase.storage.from('webcam-private').remove([photo.storage_path]);
-    return apiSuccess('La photo a été ajoutée à l’album.', { id });
+    return apiSuccess('Le souvenir a été ajouté à l’album.', { id });
   } catch (error) {
     console.error('POST /api/publish', error);
-    return apiError('Impossible d’ajouter cette photo à l’album.', 500);
+    return apiError('Impossible d’ajouter ce souvenir à l’album.', 500);
   }
 }

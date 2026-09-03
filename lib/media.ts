@@ -3,6 +3,7 @@ import type { Memory, MediaType } from '@/lib/types';
 
 export const IMAGE_LIMIT = 8 * 1024 * 1024;
 export const VIDEO_LIMIT = 40 * 1024 * 1024;
+export const WEBCAM_VIDEO_LIMIT = 3 * 1024 * 1024;
 
 export const allowedMedia: Record<string, { extensions: string[]; type: MediaType; max: number }> = {
   'image/jpeg': { extensions: ['jpg', 'jpeg'], type: 'image', max: IMAGE_LIMIT },

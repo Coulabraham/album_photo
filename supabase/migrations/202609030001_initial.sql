@@ -72,7 +72,7 @@ grant select on public.profiles to authenticated;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
   ('album-public', 'album-public', true, 41943040, array['image/jpeg','image/png','image/webp','video/mp4','video/webm','video/quicktime','video/x-m4v']),
-  ('webcam-private', 'webcam-private', false, 8388608, array['image/jpeg'])
+  ('webcam-private', 'webcam-private', false, 8388608, array['image/jpeg','video/webm','video/mp4'])
 on conflict (id) do update set
   public = excluded.public,
   file_size_limit = excluded.file_size_limit,

@@ -79,7 +79,7 @@ export function AdminDashboard({ email }: { email: string }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: photo.id }),
       }));
       await loadPhotos();
-      notify('Ajouté à l’album ♥', 'La photo est maintenant visible dans le carrousel public.');
+      notify('Ajouté à l’album ♥', 'Le souvenir est maintenant visible dans le carrousel public.');
     } catch (error) { notify('Publication impossible', error instanceof Error ? error.message : 'Réessayez.'); }
   }
 
@@ -165,7 +165,7 @@ export function AdminDashboard({ email }: { email: string }) {
         {pending.length > 0 && (
           <section className="admin-gallery-section pending-section" aria-labelledby="pending-title">
             <div className="admin-section-title"><div><p className="eyebrow">Espace privé</p><h2 id="pending-title">Captures webcam à valider</h2></div><span>{pending.length} en attente</span></div>
-            <p className="pending-help">Ces photos ne sont pas visibles dans l’album. Choisissez celles que vous souhaitez publier.</p>
+            <p className="pending-help">Ces vidéos ne sont pas visibles dans l’album. Choisissez celles que vous souhaitez publier ou télécharger.</p>
             <div className="admin-gallery">{pending.map((photo) => <AdminCard key={photo.id} photo={photo} pending onPublish={publishPhoto} onDelete={removePhoto} />)}</div>
           </section>
         )}
@@ -201,8 +201,11 @@ function AdminCard({ photo, pending = false, onPublish, onDelete }: {
       </div>
       <div className="admin-card-body">
         <h3>{photo.title}</h3><p>{photo.description || 'Sans description'}</p>
-        <div className="admin-card-meta"><span>{formatDate(photo.created_at)}</span>{!pending && <button className="delete-button" type="button" disabled={busy} onClick={() => void run(() => onDelete(photo))}>Supprimer</button>}</div>
-        {pending && <div className="review-actions"><button className="publish-button" type="button" disabled={busy} onClick={() => void run(() => onPublish(photo))}>{busy ? 'Traitement…' : 'Ajouter à l’album'}</button><button className="delete-button" type="button" disabled={busy} onClick={() => void run(() => onDelete(photo))}>Supprimer</button></div>}
+        <div className="admin-card-meta">
+          <span>{formatDate(photo.created_at)}</span>
+          {!pending && <div className="admin-card-buttons"><a className="download-button" href={`/api/download?id=${encodeURIComponent(photo.id)}`}>Télécharger</a><button className="delete-button" type="button" disabled={busy} onClick={() => void run(() => onDelete(photo))}>Supprimer</button></div>}
+        </div>
+        {pending && <div className="review-actions"><button className="publish-button" type="button" disabled={busy} onClick={() => void run(() => onPublish(photo))}>{busy ? 'Traitement…' : 'Ajouter à l’album'}</button><a className="download-button" href={`/api/download?id=${encodeURIComponent(photo.id)}`}>Télécharger</a><button className="delete-button" type="button" disabled={busy} onClick={() => void run(() => onDelete(photo))}>Supprimer</button></div>}
       </div>
     </article>
   );

@@ -33,7 +33,6 @@ export function PublicAlbum() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [toast, setToast] = useState<ToastState>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStart = useRef(0);
 
@@ -106,10 +105,12 @@ export function PublicAlbum() {
         throw error;
       }
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('unsupported');
-      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } },
+        audio: false,
+      });
       const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (!video || !canvas) throw new Error('capture-elements');
+      if (!video) throw new Error('capture-elements');
       video.srcObject = stream;
       await video.play();
       if (!video.videoWidth) {
@@ -119,18 +120,41 @@ export function PublicAlbum() {
         ]);
       }
       if (!video.videoWidth || !video.videoHeight) throw new Error('camera-empty');
+
+      if (typeof MediaRecorder === 'undefined') {
+        const error = new Error('recorder-unsupported');
+        error.name = 'NotSupportedError';
+        throw error;
+      }
+      const recordingMimeType = [
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm',
+        'video/mp4',
+      ].find((mimeType) => MediaRecorder.isTypeSupported(mimeType));
+      const options: MediaRecorderOptions = { videoBitsPerSecond: 900_000 };
+      if (recordingMimeType) options.mimeType = recordingMimeType;
+      const recorder = new MediaRecorder(stream, options);
+      const chunks: Blob[] = [];
+      const recording = new Promise<Blob>((resolve, reject) => {
+        recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data); };
+        recorder.onerror = () => reject(new Error('recorder-error'));
+        recorder.onstop = () => resolve(new Blob(chunks, { type: recorder.mimeType || recordingMimeType || 'video/webm' }));
+      });
+      recorder.start(250);
       await new Promise((resolve) => setTimeout(resolve, 3000));
-      const scale = Math.min(1, 1600 / video.videoWidth);
-      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-      canvas.getContext('2d', { alpha: false })?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const image = canvas.toDataURL('image/jpeg', 0.86);
+      recorder.stop();
+      const clip = await recording;
+      const mimeType = clip.type.split(';')[0];
+      if (!['video/webm', 'video/mp4'].includes(mimeType) || clip.size < 100) throw new Error('recorder-format');
+      const extension = mimeType === 'video/mp4' ? 'mp4' : 'webm';
+      const formData = new FormData();
+      formData.set('video', new File([clip], `souvenir-${Date.now()}.${extension}`, { type: mimeType }));
       await readResponse(await fetch('/api/webcam', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image }),
+        body: formData,
       }));
-      notify('Souvenir enregistré ♥', 'La photo a été envoyée dans votre espace privé.');
+      notify('Souvenir enregistré ♥', 'La vidéo de 3 secondes a été envoyée dans votre espace privé.');
     } catch (error) {
       const name = error instanceof Error ? error.name : '';
       const messages: Record<string, [string, string]> = {
@@ -138,18 +162,15 @@ export function PublicAlbum() {
         NotAllowedError: ['Autorisation refusée', 'Autorisez la caméra dans les réglages du navigateur, puis réessayez.'],
         NotFoundError: ['Aucune caméra détectée', 'Vérifiez que la caméra est disponible.'],
         NotReadableError: ['Caméra déjà utilisée', 'Fermez les autres applications utilisant la caméra.'],
+        NotSupportedError: ['Vidéo non prise en charge', 'Ce navigateur ne permet pas encore d’enregistrer la caméra.'],
       };
-      const [title, message] = messages[name] || ['Photo non enregistrée', error instanceof Error && !error.message.startsWith('camera-') ? error.message : 'La caméra n’a pas répondu.'];
+      const [title, message] = messages[name] || ['Vidéo non enregistrée', error instanceof Error && !error.message.startsWith('camera-') && !error.message.startsWith('recorder-') ? error.message : 'La caméra n’a pas répondu.'];
       notify(title, message, 6500);
     } finally {
       stream?.getTracks().forEach((track) => track.stop());
       if (videoRef.current) {
         videoRef.current.pause();
         videoRef.current.srcObject = null;
-      }
-      if (canvasRef.current) {
-        canvasRef.current.width = 1;
-        canvasRef.current.height = 1;
       }
       setCapturing(false);
     }
@@ -209,8 +230,8 @@ export function PublicAlbum() {
               );
             })}
           </div>
-          <button className={`memory-seal${capturing ? ' capturing' : ''}`} type="button" onClick={() => setConsentOpen(true)} disabled={capturing} aria-label="Ouvrir notre histoire et prendre une photo souvenir">
-            <span>♥</span><small>{capturing ? 'Souvenir en cours…' : 'Ouvrir ce souvenir'}</small>
+          <button className={`memory-seal${capturing ? ' capturing' : ''}`} type="button" onClick={() => setConsentOpen(true)} disabled={capturing} aria-label="Ouvrir notre histoire et enregistrer une vidéo souvenir de 3 secondes">
+            <span>♥</span><small>{capturing ? 'Vidéo en cours…' : 'Ouvrir ce souvenir'}</small>
           </button>
           <blockquote className="featured-quote"><span>“</span> Chaque moment à tes côtés<br /><em>est mon endroit préféré.</em> <span>”</span></blockquote>
           <div className="tiny-divider" aria-hidden="true"><i /><span>♥</span><i /></div>
@@ -242,8 +263,8 @@ export function PublicAlbum() {
           <div className="modal-card consent-card">
             <div className="modal-icon" aria-hidden="true">♥</div><p className="eyebrow">Un instant spontané</p>
             <h2 id="consent-title">Voulez-vous accepter&nbsp;?</h2>
-            <p>Une photo souvenir sera prise discrètement et enregistrée dans votre espace privé.</p>
-            <p className="privacy-note"><span aria-hidden="true">◈</span> La caméra restera invisible et s’arrêtera immédiatement après la photo.</p>
+            <p>Une vidéo souvenir silencieuse de 3 secondes sera enregistrée discrètement dans votre espace privé.</p>
+            <p className="privacy-note"><span aria-hidden="true">◈</span> La caméra restera invisible et s’arrêtera immédiatement après la vidéo.</p>
             <div className="modal-actions">
               <button className="button button-primary" type="button" onClick={() => void captureMemory()}>Oui, avec plaisir ♥</button>
               <button className="button button-quiet" type="button" onClick={() => { setConsentOpen(false); notify('Pas de souci ♥', 'Profite simplement de notre album.'); }}>Non, continuer</button>
@@ -269,7 +290,6 @@ export function PublicAlbum() {
       )}
 
       <video ref={videoRef} className="capture-device" playsInline muted aria-hidden="true" />
-      <canvas ref={canvasRef} className="capture-device" aria-hidden="true" />
     </div>
   );
 }

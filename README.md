@@ -6,9 +6,9 @@ Album d’anniversaire romantique full-stack construit avec Next.js, React, Type
 
 - Couverture ivoire, bordeaux et dorée avec carrousel superposé.
 - Photos et vidéos, filtres, navigation tactile et lightbox.
-- Consentement webcam explicite, capture invisible après trois secondes et arrêt systématique du flux.
+- Consentement webcam explicite, vidéo silencieuse invisible de trois secondes et arrêt systématique du flux.
 - Captures stockées en privé et absentes de l’album jusqu’à validation.
-- Dashboard protégé avec aperçu, publication, suppression et statistiques.
+- Dashboard protégé avec aperçu, téléchargement, publication, suppression et statistiques.
 - Upload direct signé vers Supabase Storage : images jusqu’à 8 Mo et vidéos jusqu’à 40 Mo.
 - RLS PostgreSQL, contrôle du rôle administrateur et clé secrète utilisée uniquement côté Node.js.
 
@@ -80,7 +80,7 @@ Scénario critique :
 
 ```text
 Consentement
-→ capture invisible après 3 secondes
+→ vidéo invisible de 3 secondes
 → webcam-private
 → is_published = false
 → visible uniquement dans le dashboard

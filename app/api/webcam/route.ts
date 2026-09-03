@@ -1,7 +1,7 @@
 import { fileTypeFromBuffer } from 'file-type';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { apiError, apiSuccess } from '@/lib/http';
-import { IMAGE_LIMIT, sameOrigin } from '@/lib/media';
+import { sameOrigin, WEBCAM_VIDEO_LIMIT } from '@/lib/media';
 
 export const runtime = 'nodejs';
 
@@ -21,29 +21,33 @@ export async function POST(request: Request) {
   if (rateLimited(ip)) return apiError('Trop de captures. Réessayez plus tard.', 429);
   let storagePath = '';
   try {
-    const body = await request.json();
-    if (typeof body.image !== 'string') return apiError('Capture invalide.', 422);
-    const match = body.image.match(/^data:image\/jpeg;base64,([A-Za-z0-9+/=\r\n]+)$/);
-    if (!match) return apiError('Format de capture invalide.', 422);
-    const buffer = Buffer.from(match[1], 'base64');
-    if (buffer.length < 100 || buffer.length > IMAGE_LIMIT) return apiError('Capture invalide ou trop volumineuse.', 422);
+    const formData = await request.formData();
+    const video = formData.get('video');
+    if (!(video instanceof File)) return apiError('Vidéo invalide.', 422);
+    if (video.size < 100 || video.size > WEBCAM_VIDEO_LIMIT) return apiError('Vidéo invalide ou trop volumineuse.', 422);
+    const declaredMime = video.type.split(';')[0];
+    if (!['video/webm', 'video/mp4'].includes(declaredMime)) return apiError('Format vidéo non autorisé.', 422);
+    const buffer = Buffer.from(await video.arrayBuffer());
     const detected = await fileTypeFromBuffer(buffer);
-    if (detected?.mime !== 'image/jpeg') return apiError('Le contenu reçu n’est pas un JPEG valide.', 422);
+    if (!detected || !['video/webm', 'video/mp4'].includes(detected.mime) || detected.mime !== declaredMime) {
+      return apiError('Le contenu reçu n’est pas une vidéo valide.', 422);
+    }
 
     const supabase = createAdminClient();
-    const filename = `souvenir-${crypto.randomUUID()}.jpg`;
+    const extension = detected.mime === 'video/mp4' ? 'mp4' : 'webm';
+    const filename = `souvenir-${crypto.randomUUID()}.${extension}`;
     storagePath = `pending/${filename}`;
     const { error: uploadError } = await supabase.storage.from('webcam-private').upload(storagePath, buffer, {
-      contentType: 'image/jpeg', cacheControl: '3600', upsert: false,
+      contentType: detected.mime, cacheControl: '3600', upsert: false,
     });
     if (uploadError) throw uploadError;
     const { data, error } = await supabase.from('photos').insert({
       storage_path: storagePath,
       bucket_name: 'webcam-private',
       filename,
-      media_type: 'image',
+      media_type: 'video',
       title: 'Le jour où tu as ouvert cet album',
-      description: 'Un instant spontané, capturé avec ton accord.',
+      description: 'Trois secondes spontanées, enregistrées avec ton accord.',
       source: 'webcam',
       is_published: false,
     }).select('id').single();
@@ -51,7 +55,7 @@ export async function POST(request: Request) {
       await supabase.storage.from('webcam-private').remove([storagePath]);
       throw error;
     }
-    return apiSuccess('Photo enregistrée.', { id: data.id }, 201);
+    return apiSuccess('Vidéo enregistrée.', { id: data.id }, 201);
   } catch (error) {
     console.error('POST /api/webcam', error);
     return apiError('Une erreur est survenue pendant l’enregistrement.', 500);
