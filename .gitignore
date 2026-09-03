@@ -1,0 +1,11 @@
+# Souvenirs privés générés ou ajoutés localement
+uploads/*
+!uploads/.htaccess
+!uploads/index.html
+
+# Configuration et fichiers locaux
+.env
+*.log
+skills.md
+.DS_Store
+Thumbs.db
