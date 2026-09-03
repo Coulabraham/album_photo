@@ -1,89 +1,105 @@
-# Notre histoire — album d’anniversaire
+# Notre histoire — Next.js + Supabase
 
-Un cadeau numérique romantique construit en PHP 8, MySQL, HTML/CSS et JavaScript Vanilla. Le site public présente photos et vidéos depuis la base, propose une lightbox tactile et peut, après consentement explicite, capturer un souvenir discret via la webcam. Toute capture reste privée jusqu’à sa validation dans l’administration, où elle peut être ajoutée à l’album ou supprimée.
+Album d’anniversaire romantique full-stack construit avec Next.js, React, TypeScript et Node.js. Supabase fournit PostgreSQL, Auth et Storage. Le design et les parcours reprennent fidèlement la version PHP d’origine.
 
-## Installation avec XAMPP
+## Fonctionnalités
 
-1. Installez XAMPP pour Windows, puis lancez **Apache** et **MySQL** depuis le panneau XAMPP.
-2. Placez ce dossier dans `C:\xampp\htdocs\album_anniv\` (son emplacement actuel convient déjà).
-3. Ouvrez `http://localhost/phpmyadmin`, utilisez l’onglet **Importer**, puis sélectionnez `database/database.sql`. Le script crée lui-même la base `anniversaire` et ses tables. Pour une installation créée avant l’ajout des vidéos, importez seulement `database/migration_add_video.sql`.
-4. La configuration XAMPP standard (`root` sans mot de passe) est déjà renseignée dans `config.php`. Si votre MySQL diffère, modifiez `DB_HOST`, `DB_NAME`, `DB_USER` et `DB_PASS`.
-5. Vérifiez que PHP peut écrire dans `uploads/`. Sous Windows/XAMPP, c’est normalement automatique.
-6. Sur la machine de développement configurée, ouvrez `https://localhost/album_anniv/`. Le certificat et sa clef appartiennent à l’installation XAMPP locale et ne sont volontairement pas versionnés. Sur un autre ordinateur, configurez un certificat local de confiance pour `localhost` afin d’utiliser HTTPS sans avertissement.
+- Couverture ivoire, bordeaux et dorée avec carrousel superposé.
+- Photos et vidéos, filtres, navigation tactile et lightbox.
+- Consentement webcam explicite, capture invisible après trois secondes et arrêt systématique du flux.
+- Captures stockées en privé et absentes de l’album jusqu’à validation.
+- Dashboard protégé avec aperçu, publication, suppression et statistiques.
+- Upload direct signé vers Supabase Storage : images jusqu’à 8 Mo et vidéos jusqu’à 40 Mo.
+- RLS PostgreSQL, contrôle du rôle administrateur et clé secrète utilisée uniquement côté Node.js.
 
-L’administration est accessible sur `https://localhost/album_anniv/login.php`. Après l’import SQL, créez votre compte depuis PowerShell avec un mot de passe d’au moins 12 caractères :
+## Prérequis
 
-```powershell
-C:\xampp\php\php.exe C:\xampp\htdocs\album_anniv\create_admin.php admin "VOTRE-MOT-DE-PASSE"
+- Node.js 20.9 ou plus récent.
+- Un projet Supabase.
+- Un compte Vercel pour le déploiement recommandé.
+
+## Installation
+
+```bash
+git clone https://github.com/Coulabraham/album_photo.git
+cd album_photo
+npm install
 ```
 
-## Personnalisation
+Copiez `.env.example` vers `.env.local` et renseignez :
 
-Les textes d’accueil et de fin se trouvent dans `index.php`. La palette, la typographie et la mise en page sont regroupées au début de `assets/css/style.css`. Les nouvelles photos ou vidéos, leurs textes et leur date se gèrent ensuite depuis l’administration. Les formats vidéo acceptés sont MP4, WEBM, MOV et M4V, avec une limite applicative de 40 Mo. La chronologie publique est automatiquement construite depuis les dates de souvenir ; lorsqu’aucune date n’est précisée, la date d’ajout est utilisée.
-
-Pour les vidéos volumineuses, vérifiez également ces valeurs dans `C:\xampp\php\php.ini`, puis redémarrez Apache :
-
-```ini
-upload_max_filesize=50M
-post_max_size=50M
-max_execution_time=120
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://VOTRE_PROJET.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+SUPABASE_SECRET_KEY=sb_secret_xxx
 ```
 
-## Dépannage de la webcam en local
+La clé secrète ne doit jamais porter le préfixe `NEXT_PUBLIC_`, être envoyée au navigateur ou être commitée.
 
-Utilisez exactement `https://localhost/album_anniv/` ou `https://127.0.0.1/album_anniv/`. Une adresse réseau telle que `http://192.168.1.20/...` n’est pas considérée comme sécurisée par le navigateur : utilisez alors HTTPS via Cloudflare Tunnel/ngrok.
+## Préparer Supabase
 
-Dans Chrome ou Edge, cliquez sur l’icône à gauche de l’adresse, ouvrez les autorisations du site, placez **Caméra** sur **Autoriser**, choisissez la bonne webcam, puis rechargez la page. Fermez Teams, Zoom ou toute application qui pourrait monopoliser la caméra. Le bouton **Prendre une photo souvenir** au-dessus de la galerie permet de retenter facilement. En cas d’échec, le site affiche désormais la cause détectée (HTTPS, permission, caméra absente ou déjà occupée).
+Dans **SQL Editor**, exécutez :
 
-## Checklist de test
+```text
+supabase/migrations/202609030001_initial.sql
+```
 
-- [ ] La page d’accueil et le message romantique s’affichent correctement.
-- [ ] « Découvrir notre histoire » ouvre le dialogue de consentement.
-- [ ] « Non » ferme le dialogue, affiche une notification et mène à l’album.
-- [ ] « Oui » déclenche seulement alors l’autorisation du navigateur.
-- [ ] Aucun aperçu vidéo, rectangle de caméra ou compte à rebours n’est visible.
-- [ ] La capture a lieu environ trois secondes après l’ouverture effective du flux.
-- [ ] Le voyant caméra s’éteint immédiatement après la capture, y compris en cas d’erreur.
-- [ ] La notification « Souvenir enregistré » apparaît et disparaît seule.
-- [ ] La ligne est présente dans `photos` avec la source `webcam`.
-- [ ] Le JPEG correspondant est présent dans `uploads/`.
-- [ ] La capture webcam apparaît dans « Captures webcam à valider », mais pas dans l’album public.
-- [ ] « Ajouter à l’album » publie la capture sans rechargement de page.
-- [ ] « Supprimer » retire définitivement la capture et son fichier.
-- [ ] L’album, les filtres par année, la lightbox et précédent/suivant fonctionnent.
-- [ ] Les flèches, Échap et le balayage tactile fonctionnent dans la lightbox.
-- [ ] Une erreur/refus de webcam n’empêche jamais l’accès à l’album.
-- [ ] La connexion refuse un mauvais mot de passe et protège `admin.php`.
-- [ ] L’aperçu puis l’ajout JPG/JPEG, PNG et WEBP fonctionnent sous 8 Mo.
-- [ ] L’aperçu puis l’ajout MP4, WEBM, MOV ou M4V fonctionnent sous 40 Mo.
-- [ ] Une vidéo s’ouvre avec ses contrôles dans la lightbox et s’arrête à la fermeture.
-- [ ] Un fichier renommé avec une fausse extension image est refusé.
-- [ ] La confirmation de suppression retire la ligne et le fichier sans rechargement.
-- [ ] Les compteurs total/webcam/upload sont actualisés.
-- [ ] L’interface reste confortable à 360 px, sur tablette et sur ordinateur.
+Cette migration crée :
 
-La webcam fonctionne sur `localhost`, considéré comme un contexte sécurisé par les navigateurs modernes. Vérifiez les essais d’autorisation/refus dans une fenêtre privée si le navigateur a mémorisé votre choix.
+- `profiles` et le rôle administrateur ;
+- `photos` et ses index ;
+- les politiques RLS ;
+- le bucket public `album-public` ;
+- le bucket privé `webcam-private`.
 
-## Mise en production
+Dans **Authentication > Users**, créez l’utilisateur administrateur. Puis attribuez-lui le rôle depuis SQL Editor :
 
-Pour un hébergeur PHP/MySQL classique (OVH, o2switch, Infomaniak, etc.) :
+```sql
+update public.profiles
+set role = 'admin'
+where id = (select id from auth.users where email = 'votre@email.com');
+```
 
-1. Créez une base MySQL et un utilisateur dédié avec les seuls droits nécessaires sur cette base.
-2. Importez `database/database.sql` en adaptant ou en retirant les lignes `CREATE DATABASE` et `USE` si l’hébergeur impose le nom de base.
-3. Envoyez les fichiers par SFTP dans le répertoire web.
-4. Renseignez les accès MySQL dans `config.php`, ou de préférence via `ANNIV_DB_HOST`, `ANNIV_DB_NAME`, `ANNIV_DB_USER` et `ANNIV_DB_PASS` si l’hébergeur gère des variables d’environnement.
-5. Donnez au processus PHP le droit d’écriture sur `uploads/`, sans permission globale `777` si elle peut être évitée.
-6. Changez le compte initial et son mot de passe, puis activez un certificat TLS.
-7. Testez upload, suppression, erreurs et webcam sur téléphone et ordinateur.
+## Développement local
 
-Sur Internet, `getUserMedia()` exige un **contexte HTTPS sécurisé**. Sans HTTPS, l’album reste utilisable mais le navigateur refusera la caméra. Les fichiers `.htaccess` fournis désactivent l’indexation des répertoires et bloquent l’exécution de scripts dans `uploads/` sur Apache. Confirmez leur prise en charge auprès de l’hébergeur.
+```bash
+npm run dev
+```
 
-Vercel n’exécute pas cette architecture PHP/MySQL Apache telle quelle. Les choix simples sont un hébergement PHP/MySQL traditionnel, un backend PHP séparé appelé par un front statique, ou une migration complète vers une stack serverless compatible Vercel.
+Ouvrez `http://localhost:3000`. Les navigateurs autorisent généralement la caméra sur `localhost`. Pour tester depuis un téléphone, utilisez une URL HTTPS fournie par un tunnel ou déployez une préversion Vercel.
 
-Pour une démonstration temporaire depuis le PC, utilisez **Cloudflare Tunnel** ou **ngrok** afin d’exposer `http://localhost` derrière une URL HTTPS. Ne partagez cette URL qu’après avoir changé le mot de passe admin et ne laissez pas le tunnel ouvert inutilement.
+## Vérifications
 
-## Sécurité et limites
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
 
-Les opérations d’administration utilisent session, cookie HttpOnly/SameSite, hash de mot de passe et jeton CSRF. Les entrées SQL passent par PDO et requêtes préparées. Les images sont limitées à 8 Mo, contrôlées par extension, MIME et contenu, et reçoivent un nom aléatoire. Les erreurs détaillées sont inscrites dans le journal PHP sans être exposées au visiteur.
+Scénario critique :
 
-Pour un site public à fort trafic, ajoutez en complément une limitation de débit côté serveur/proxy sur `upload.php`, car cet endpoint doit rester public pour permettre la capture consentie.
+```text
+Consentement
+→ capture invisible après 3 secondes
+→ webcam-private
+→ is_published = false
+→ visible uniquement dans le dashboard
+→ Ajouter à l’album
+→ album-public
+→ is_published = true
+→ visible dans le carrousel
+```
+
+## Déploiement Vercel
+
+1. Importez le dépôt GitHub dans Vercel.
+2. Ajoutez les trois variables de `.env.example` dans **Project Settings > Environment Variables**.
+3. Déployez la branche `main`.
+4. Ajoutez l’URL Vercel dans **Supabase > Authentication > URL Configuration** comme Site URL et Redirect URL.
+5. Vérifiez la connexion, la caméra, la validation des captures et les vidéos depuis un téléphone.
+
+Vercel fournit automatiquement HTTPS, indispensable à `getUserMedia()` hors de `localhost`.
+
+## Sécurité
+
+Les médias personnels, `.env.local`, secrets, certificats et anciens fichiers du dossier `uploads/` sont ignorés par Git. Les captures anonymes sont limitées côté route Node.js. En production à fort trafic, ajoutez également une limitation distribuée (Vercel Firewall, Upstash ou équivalent), car la mémoire d’une fonction serverless n’est pas partagée entre toutes les instances.
